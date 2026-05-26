@@ -3,7 +3,7 @@ import axios, { type AxiosError } from 'axios'
 // ─── Constantes ───────────────────────────────────────────────────────────────
 export const TOKEN_KEY = 'centrica_token'
 export const USERNAME_KEY = 'centrica_user'
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://backendcentricamedidores.onrender.com'
 
 // ─── Instancia Axios ──────────────────────────────────────────────────────────
 const api = axios.create({
