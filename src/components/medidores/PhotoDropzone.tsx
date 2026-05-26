@@ -6,9 +6,9 @@ import { uploadMedidorFoto } from '@/lib/supabase'
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface PhotoDropzoneProps {
-  value:      string | null           // URL actual guardada en el form
-  onChange:   (url: string | null) => void
-  disabled?:  boolean
+  value: string | null           // URL actual guardada en el form
+  onChange: (url: string | null) => void
+  disabled?: boolean
 }
 
 type UploadState = 'idle' | 'compressing' | 'uploading' | 'done' | 'error'
@@ -16,28 +16,28 @@ type UploadState = 'idle' | 'compressing' | 'uploading' | 'done' | 'error'
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatBytes(bytes: number): string {
-  if (bytes < 1024)       return `${bytes} B`
-  if (bytes < 1048576)    return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1048576).toFixed(1)} MB`
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export function PhotoDropzone({ value, onChange, disabled = false }: PhotoDropzoneProps) {
-  const inputRef        = useRef<HTMLInputElement>(null)
-  const [isDragging,    setIsDragging]    = useState(false)
-  const [uploadState,   setUploadState]   = useState<UploadState>('idle')
-  const [errorMsg,      setErrorMsg]      = useState<string | null>(null)
-  const [previewUrl,    setPreviewUrl]    = useState<string | null>(value)
-  const [fileInfo,      setFileInfo]      = useState<{ name: string; origSize: number } | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [uploadState, setUploadState] = useState<UploadState>('idle')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(value)
+  const [fileInfo, setFileInfo] = useState<{ name: string; origSize: number } | null>(null)
 
-  const stateLabel: Record<UploadState, string> = {
+  /*const stateLabel: Record<UploadState, string> = {
     idle:        'Arrastra una imagen aquí o haz clic para seleccionar',
     compressing: 'Comprimiendo imagen...',
     uploading:   'Subiendo a Supabase Storage...',
     done:        'Foto subida correctamente',
     error:       errorMsg ?? 'Error al subir la imagen',
-  }
+  }*/
 
   const processFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -79,8 +79,8 @@ export function PhotoDropzone({ value, onChange, disabled = false }: PhotoDropzo
   }, [onChange])
 
   // ── Handlers drag & drop ───────────────────────────────────────────────────
-  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true)  }
-  const handleDragLeave = ()                    => setIsDragging(false)
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true) }
+  const handleDragLeave = () => setIsDragging(false)
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
@@ -150,8 +150,8 @@ export function PhotoDropzone({ value, onChange, disabled = false }: PhotoDropzo
           {/* Info de archivo + estado */}
           <div className={cn(
             'flex items-center gap-2 border-t border-border px-3 py-2 text-xs',
-            uploadState === 'done'  ? 'bg-green-50 dark:bg-green-950/20'  : '',
-            uploadState === 'error' ? 'bg-red-50 dark:bg-red-950/20'     : 'bg-background',
+            uploadState === 'done' ? 'bg-green-50 dark:bg-green-950/20' : '',
+            uploadState === 'error' ? 'bg-red-50 dark:bg-red-950/20' : 'bg-background',
           )}>
             {uploadState === 'done' && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600" />}
             {uploadState === 'error' && <AlertCircle className="h-3.5 w-3.5 shrink-0 text-destructive" />}

@@ -6,7 +6,7 @@ import { Building2, Layers, Users, Gauge, TrendingUp, TrendingDown, Activity, Re
 import { toast } from 'sonner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
 import { Button } from '@/components/ui/button'
 import { dashboardService, type DashboardStats } from '@/services/dashboard.service'
 

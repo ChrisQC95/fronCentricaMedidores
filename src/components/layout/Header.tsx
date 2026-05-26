@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import { useNavigate } from 'react-router-dom'
 import { NavLinks } from './Navigation'
-import { cn } from '@/lib/utils'
+
 
 interface HeaderProps {
   title?: string
@@ -51,7 +51,7 @@ export function Header({ title = 'Dashboard' }: HeaderProps) {
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-background px-4 md:px-6 shadow-sm fixed top-0 w-full z-30 md:relative md:z-10 transition-all">
-      
+
       {/* ── Mobile Branding & Menu Trigger ── */}
       <div className="flex md:hidden items-center gap-3">
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
