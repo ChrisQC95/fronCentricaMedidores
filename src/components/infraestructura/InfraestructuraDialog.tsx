@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Layers, Hash, FileText, Building2, GitBranch, AlignLeft } from 'lucide-react'
+import { Layers, Hash, FileText, Building2, GitBranch, AlignLeft, Warehouse } from 'lucide-react'
 import { toast } from 'sonner'
 import { isAxiosError } from 'axios'
 import {
@@ -27,13 +27,15 @@ import { empresaService, type Empresa } from '@/services/empresa.service'
 // ─── Schema Zod ──────────────────────────────────────────────────────────────
 
 const infraestructuraSchema = z.object({
-  empresaRuc:  z.string().min(1, 'Selecciona una empresa'),
-  tipo:        z.enum(['UNIDAD', 'BLOQUE', 'PISO', 'ENST', 'ESPACIO_COMUN'], {
+  empresaRuc: z.string().min(1, 'Selecciona una empresa'),
+  tipo: z.enum(['UNIDAD', 'BLOQUE', 'PISO', 'ENST', 'ESPACIO_COMUN'], {
     message: 'Selecciona un tipo válido',
   }),
-  nombre:      z.string().min(1, 'El nombre es obligatorio').max(150, 'Máximo 150 caracteres'),
-  parentId:    z.number().nullable().optional(),
-  glosa:       z.string().max(1000, 'Máximo 1000 caracteres').nullable().optional(),
+  nombre: z.string().min(1, 'El nombre es obligatorio').max(150, 'Máximo 150 caracteres'),
+  parentId: z.number().nullable().optional(),
+  glosa: z.string().max(1000, 'Máximo 1000 caracteres').nullable().optional(),
+  /** 1 = Oficina, 2 = Almacén, 3 = Centro Comercial — null para nodos no-espacio */
+  espacioName: z.number().int().min(1).max(3).nullable().optional(),
 })
 
 export type InfraestructuraFormValues = z.infer<typeof infraestructuraSchema>
@@ -41,11 +43,11 @@ export type InfraestructuraFormValues = z.infer<typeof infraestructuraSchema>
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface InfraestructuraDialogProps {
-  open:          boolean
-  onOpenChange:  (open: boolean) => void
-  item?:         InfraestructuraResponse | null
-  onSubmit:      (values: InfraestructuraFormValues) => Promise<void>
-  isSubmitting:  boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  item?: InfraestructuraResponse | null
+  onSubmit: (values: InfraestructuraFormValues) => Promise<void>
+  isSubmitting: boolean
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -60,10 +62,10 @@ export function InfraestructuraDialog({
   const isEdit = !!item
 
   // Datos para los selects dinámicos
-  const [empresas,       setEmpresas]       = useState<Empresa[]>([])
-  const [nodosPadre,     setNodosPadre]     = useState<InfraestructuraResponse[]>([])
+  const [empresas, setEmpresas] = useState<Empresa[]>([])
+  const [nodosPadre, setNodosPadre] = useState<InfraestructuraResponse[]>([])
   const [loadingEmpresas, setLoadingEmpresas] = useState(false)
-  const [loadingNodos,    setLoadingNodos]    = useState(false)
+  const [loadingNodos, setLoadingNodos] = useState(false)
 
   const {
     register,
@@ -76,15 +78,19 @@ export function InfraestructuraDialog({
     resolver: zodResolver(infraestructuraSchema),
     defaultValues: {
       empresaRuc: '',
-      tipo:       undefined,
-      nombre:     '',
-      parentId:   null,
-      glosa:      '',
+      tipo: undefined,
+      nombre: '',
+      parentId: null,
+      glosa: '',
+      espacioName: null,
     },
   })
 
-  // Observar el campo empresa para recargar los nodos padre al cambiar
+  // Observar empresa y tipo para lógica reactiva
   const selectedEmpresaRuc = watch('empresaRuc')
+  const selectedTipo = watch('tipo')
+  // Mostrar selector de espacio solo para nodos que son espacios concretos
+  const showEspacioName = selectedTipo === 'ENST' || selectedTipo === 'ESPACIO_COMUN' || selectedTipo === 'PISO' || selectedTipo === 'UNIDAD' || selectedTipo === 'BLOQUE'
 
   // ── Cargar empresas al abrir el dialog ─────────────────────────────────────
   useEffect(() => {
@@ -124,13 +130,14 @@ export function InfraestructuraDialog({
       reset(
         item
           ? {
-              empresaRuc: item.empresaRuc,
-              tipo:       item.tipo,
-              nombre:     item.nombre,
-              parentId:   item.parentId ?? null,
-              glosa:      item.glosa ?? '',
-            }
-          : { empresaRuc: '', tipo: undefined, nombre: '', parentId: null, glosa: '' }
+            empresaRuc: item.empresaRuc,
+            tipo: item.tipo,
+            nombre: item.nombre,
+            parentId: item.parentId ?? null,
+            glosa: item.glosa ?? '',
+            espacioName: item.espacioName ?? null,
+          }
+          : { empresaRuc: '', tipo: undefined, nombre: '', parentId: null, glosa: '', espacioName: null }
       )
     }
   }, [open, item, reset])
@@ -249,6 +256,39 @@ export function InfraestructuraDialog({
             )}
           </div>
 
+          {/* Tipo de Espacio — solo visible para ENST / ESPACIO_COMUN */}
+          {showEspacioName && (
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm font-medium">
+                <Warehouse className="mr-1.5 inline h-3.5 w-3.5 text-muted-foreground" />
+                Tipo de Espacio
+                <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Controller
+                name="espacioName"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value != null ? String(field.value) : 'none'}
+                    onValueChange={v => field.onChange(v === 'none' ? null : Number(v))}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona el tipo de espacio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        <span className="text-muted-foreground italic">— Sin clasificar</span>
+                      </SelectItem>
+                      <SelectItem value="1">Oficina</SelectItem>
+                      <SelectItem value="2">Almacén</SelectItem>
+                      <SelectItem value="3">Centro Comercial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+          )}
           {/* Elemento Padre (opcional) */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm font-medium">
@@ -311,6 +351,7 @@ export function InfraestructuraDialog({
               <p className="text-xs text-destructive">{errors.glosa.message}</p>
             )}
           </div>
+
         </form>
 
         <DialogFooter className="gap-2 sm:gap-0">

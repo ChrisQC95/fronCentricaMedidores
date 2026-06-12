@@ -11,6 +11,8 @@ export interface RegistroMedidor {
   empresaRazonSocial: string
   fotoUrl: string | null
   voltaje: number
+  /** 1=Luz, 2=Agua */
+  tipoServicio: number
   /** Calculado por trigger en BD — null si es el primer registro del medidor */
   consumo: number | null
   fechaRegistro: string           // ISO "YYYY-MM-DD"
@@ -21,6 +23,7 @@ export interface RegistroMedidor {
 export interface CreateRegistroPayload {
   infraestructuraId: number
   voltaje: number
+  tipoServicio: number
   fotoUrl?: string | null
   observacion?: string | null
   fechaRegistro?: string | null   // ISO "YYYY-MM-DD" — opcional (backend usa hoy)
@@ -38,6 +41,6 @@ export const medidorService = {
     api.post<RegistroMedidor>('/api/medidores', data).then(r => r.data),
 
   /** GET /api/medidores/reporte?mes=5&anio=2025 */
-  getReporte: (mes: number, anio: number): Promise<RegistroMedidor[]> =>
-    api.get<RegistroMedidor[]>(`/api/medidores/reporte?mes=${mes}&anio=${anio}`).then(r => r.data),
+  getReporte: (mes: number, anio: number, tipoServicio: number): Promise<RegistroMedidor[]> =>
+    api.get<RegistroMedidor[]>(`/api/medidores/reporte?mes=${mes}&anio=${anio}&tipoServicio=${tipoServicio}`).then(r => r.data),
 }

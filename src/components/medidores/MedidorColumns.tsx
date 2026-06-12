@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { ArrowUpDown, Eye, Zap } from 'lucide-react'
+import { ArrowUpDown, Eye, Zap, Droplet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import type { RegistroMedidor } from '@/services/medidor.service'
@@ -16,15 +16,35 @@ function formatDecimal(val: number | null | undefined, suffix = ''): string {
   return `${Number(val).toFixed(2)}${suffix}`
 }
 
-// ─── Columnas ─────────────────────────────────────────────────────────────────
-
-interface ColumnActions {
-  onView: (item: RegistroMedidor) => void
+/**
+ * Devuelve la unidad correcta según el tipo de servicio de la fila.
+ * Se usa en el modo "Ambos" (tipoFiltro = 3) para concatenar al valor.
+ */
+function getUnidad(tipoServicio: number): string {
+  return tipoServicio === 2 ? ' m³' : ' kWh'
 }
 
-export function getMedidorColumns({ onView }: ColumnActions): ColumnDef<RegistroMedidor>[] {
+// ─── Columnas dinámicas ────────────────────────────────────────────────────────
+
+interface ColumnOptions {
+  onView:     (item: RegistroMedidor) => void
+  /**
+   * tipoFiltro controla cabeceras y celdas:
+   *   1 → Electricidad — cabecera fija "Medida (kWh)", valor sin unidad concatenada
+   *   2 → Agua         — cabecera fija "Medida (m³)",  valor sin unidad concatenada
+   *   3 → Ambos        — cabeceras genéricas, unidad (kWh / m³) concatenada en cada celda
+   */
+  tipoFiltro: 1 | 2 | 3
+}
+
+export function getMedidorColumns({ onView, tipoFiltro }: ColumnOptions): ColumnDef<RegistroMedidor>[] {
+  // Cabeceras según el filtro activo
+  const medidaHeader  = tipoFiltro === 1 ? 'Medida (kWh)' : tipoFiltro === 2 ? 'Medida (m³)' : 'Medida'
+  const consumoHeader = tipoFiltro === 1 ? 'Consumo (kWh)': tipoFiltro === 2 ? 'Consumo (m³)': 'Consumo'
+  const isAmbos       = tipoFiltro === 3
+
   return [
-    // ID / Fecha
+    // ── Fecha / ID ──────────────────────────────────────────────────────────
     {
       accessorKey: 'fechaRegistro',
       id: 'fechaRegistro',
@@ -44,7 +64,30 @@ export function getMedidorColumns({ onView }: ColumnActions): ColumnDef<Registro
       ),
     },
 
-    // Empresa
+    // ── Tipo de Servicio (solo visible en modo "Ambos") ──────────────────────
+    ...(isAmbos ? [{
+      id: 'tipoServicio',
+      accessorKey: 'tipoServicio' as const,
+      header: () => (
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Servicio
+        </span>
+      ),
+      cell: ({ row }: { row: { original: RegistroMedidor } }) => {
+        const tipo = row.original.tipoServicio
+        return tipo === 2 ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+            <Droplet className="h-2.5 w-2.5" /> Agua
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+            <Zap className="h-2.5 w-2.5" /> Luz
+          </span>
+        )
+      },
+    } as ColumnDef<RegistroMedidor>] : []),
+
+    // ── Empresa ─────────────────────────────────────────────────────────────
     {
       accessorKey: 'empresaRazonSocial',
       header: ({ column }) => (
@@ -63,7 +106,7 @@ export function getMedidorColumns({ onView }: ColumnActions): ColumnDef<Registro
       ),
     },
 
-    // Punto de medición
+    // ── Punto de medición ───────────────────────────────────────────────────
     {
       accessorKey: 'infraestructuraNombre',
       header: () => (
@@ -83,30 +126,38 @@ export function getMedidorColumns({ onView }: ColumnActions): ColumnDef<Registro
       ),
     },
 
-    // Voltaje
+    // ── Medida (voltaje) — cabecera dinámica ────────────────────────────────
     {
       accessorKey: 'voltaje',
       header: ({ column }) => (
         <Button variant="ghost" size="sm" className="-ml-3 h-8 text-xs font-semibold uppercase tracking-wider"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-          Voltaje <ArrowUpDown className="ml-1 h-3 w-3" />
+          {medidaHeader} <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
-      cell: ({ row }) => (
-        <span className="text-sm font-semibold tabular-nums text-primary">
-          {formatDecimal(row.getValue('voltaje'))} V
-        </span>
-      ),
+      cell: ({ row }) => {
+        const valor  = row.getValue<number>('voltaje')
+        // En modo Ambos: concatena la unidad correcta de cada fila
+        const unidad = isAmbos ? getUnidad(row.original.tipoServicio) : ''
+        return (
+          <span className="text-sm font-semibold tabular-nums text-primary">
+            {formatDecimal(valor)}{unidad}
+          </span>
+        )
+      },
     },
 
-    // Consumo (destacado — calculado por DB trigger)
+    // ── Consumo — cabecera dinámica, calculado por DB trigger ───────────────
     {
       accessorKey: 'consumo',
       header: ({ column }) => (
         <Button variant="ghost" size="sm" className="-ml-3 h-8 text-xs font-semibold uppercase tracking-wider"
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-          <Zap className="mr-1 h-3 w-3 text-amber-500" />
-          Consumo <ArrowUpDown className="ml-1 h-3 w-3" />
+          {tipoFiltro === 2
+            ? <Droplet className="mr-1 h-3 w-3 text-blue-500" />
+            : <Zap className="mr-1 h-3 w-3 text-amber-500" />
+          }
+          {consumoHeader} <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
       cell: ({ row }) => {
@@ -118,16 +169,22 @@ export function getMedidorColumns({ onView }: ColumnActions): ColumnDef<Registro
             </Badge>
           )
         }
+        const unidad = isAmbos ? getUnidad(row.original.tipoServicio) : ''
+        const isAgua = row.original.tipoServicio === 2
         return (
-          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2.5 py-1 text-sm font-bold tabular-nums text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400">
-            <Zap className="h-3 w-3" />
-            {formatDecimal(consumo)} V
+          <span className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-sm font-bold tabular-nums
+            ${isAgua
+              ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400'
+              : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+            }`}>
+            {isAgua ? <Droplet className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+            {formatDecimal(consumo)}{unidad}
           </span>
         )
       },
     },
 
-    // Observación
+    // ── Observación ─────────────────────────────────────────────────────────
     {
       accessorKey: 'observacion',
       header: () => (
@@ -146,7 +203,7 @@ export function getMedidorColumns({ onView }: ColumnActions): ColumnDef<Registro
       },
     },
 
-    // Ver detalle
+    // ── Ver detalle ─────────────────────────────────────────────────────────
     {
       id: 'ver',
       header: () => null,

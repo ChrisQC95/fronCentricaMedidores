@@ -56,11 +56,12 @@ export function InfraestructuraPage() {
     setIsSubmitting(true)
     try {
       const payload = {
-        empresaRuc: values.empresaRuc,
-        tipo:       values.tipo,
-        nombre:     values.nombre,
-        parentId:   values.parentId ?? null,
-        glosa:      values.glosa || null,
+        empresaRuc:  values.empresaRuc,
+        tipo:        values.tipo,
+        nombre:      values.nombre,
+        parentId:    values.parentId ?? null,
+        glosa:       values.glosa || null,
+        espacioName: values.espacioName ?? null,
       }
 
       if (selectedItem) {

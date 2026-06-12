@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 
 import { Button } from '@/components/ui/button'
 import { dashboardService, type DashboardStats } from '@/services/dashboard.service'
+import api from '@/lib/api'
 
 // ─── Helpers de tiempo ───────────────────────────────────────────────────────
 function getRelativeTime(isoDateString: string | null): string {
@@ -63,6 +64,7 @@ function SkeletonChart() {
 export function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [totalPuntosMedicion, setTotalPuntosMedicion] = useState<number>(0)
 
   const fetchStats = async () => {
     setIsLoading(true)
@@ -78,6 +80,10 @@ export function DashboardPage() {
 
   useEffect(() => {
     fetchStats()
+    // TAREA 3: Lógica para llamar al endpoint genérico de puntos de medición
+    api.get('/api/dashboard/stats/puntos-medicion')
+      .then(res => setTotalPuntosMedicion(res.data?.total || res.data || 0))
+      .catch(() => console.error('Error al cargar puntos de medición'))
   }, [])
 
   if (isLoading || !stats) {
@@ -152,7 +158,7 @@ export function DashboardPage() {
     {
       id: 'kpi-medidores',
       title: 'Puntos de Medición',
-      value: stats.totalEnst,
+      value: totalPuntosMedicion,
       change: 'Arrendatarios activos',
       trend: 'up',
       icon: Gauge,

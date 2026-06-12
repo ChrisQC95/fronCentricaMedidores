@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Gauge, Building2, Layers, Zap, AlignLeft } from 'lucide-react'
+import { Gauge, Building2, Layers, Zap, AlignLeft, Droplet, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { isAxiosError } from 'axios'
 import {
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PhotoDropzone } from './PhotoDropzone'
 import { empresaService, type Empresa } from '@/services/empresa.service'
 import {
@@ -35,6 +36,7 @@ const medidorSchema = z.object({
     .number({ message: 'El voltaje es obligatorio' })
     .positive('El voltaje debe ser mayor a cero')
     .max(99999.99, 'Valor máximo: 99999.99'),
+  tipoServicio: z.number().int().min(1).max(2),
   fotoUrl: z.string().nullable().optional(),
   observacion: z.string().max(1000, 'Máximo 1000 caracteres').nullable().optional(),
 })
@@ -48,6 +50,13 @@ interface MedidorFormDialogProps {
   onOpenChange: (open: boolean) => void
   onSubmit:     (values: MedidorFormValues) => Promise<void>
   isSubmitting: boolean
+  /**
+   * Mensaje de error que viene del backend (ej. trigger de BD que rechaza
+   * lecturas menores a la anterior). Se muestra como Alert destructive
+   * dentro del modal para que el usuario no pierda el contexto.
+   * Pasar `undefined` o cadena vacía para ocultarlo.
+   */
+  submitError?: string
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -57,6 +66,7 @@ export function MedidorFormDialog({
   onOpenChange,
   onSubmit,
   isSubmitting,
+  submitError,
 }: MedidorFormDialogProps) {
   const [empresas,         setEmpresas]         = useState<Empresa[]>([])
   const [nodos,            setNodos]            = useState<InfraestructuraResponse[]>([])
@@ -77,12 +87,21 @@ export function MedidorFormDialog({
       empresaRuc:       '',
       infraestructuraId: undefined,
       voltaje:           undefined,
+      tipoServicio:      1,
       fotoUrl:           null,
       observacion:       '',
     },
   })
 
   const selectedEmpresaRuc = watch('empresaRuc')
+  const selectedTipoServicio = watch('tipoServicio')
+
+  const isAgua = selectedTipoServicio === 2
+  const InputIcon = isAgua ? Droplet : Zap
+  const inputLabel = isAgua ? 'Lectura (m³)' : 'Voltaje (V)'
+  const inputPlaceholder = isAgua ? '15.50' : '220.50'
+  const inputUnit = isAgua ? 'm³' : 'V'
+  const inputIconColor = isAgua ? 'text-blue-500' : 'text-muted-foreground'
 
   // ── Cargar empresas al abrir ───────────────────────────────────────────────
   useEffect(() => {
@@ -135,6 +154,43 @@ export function MedidorFormDialog({
           onSubmit={handleSubmit(onSubmit)}
           className="flex flex-col gap-4 py-1"
         >
+          {/* ── 0. Tipo de Servicio ────────────────────────────────────────── */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm font-medium">
+              Tipo de Servicio <span className="text-destructive">*</span>
+            </Label>
+            <Controller
+              name="tipoServicio"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  value={String(field.value)}
+                  onValueChange={(val) => field.onChange(parseInt(val, 10))}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger className={errors.tipoServicio ? 'border-destructive' : ''}>
+                    <SelectValue placeholder="Selecciona el tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-orange-500" />
+                        <span>Electricidad (kWh)</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="2">
+                      <div className="flex items-center gap-2">
+                        <Droplet className="h-4 w-4 text-blue-500" />
+                        <span>Agua (m³)</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.tipoServicio && <p className="text-xs text-destructive">{errors.tipoServicio.message}</p>}
+          </div>
+
           {/* ── 1. Empresa ─────────────────────────────────────────────────── */}
           <div className="flex flex-col gap-1.5">
             <Label className="text-sm font-medium">
@@ -213,11 +269,11 @@ export function MedidorFormDialog({
             )}
           </div>
 
-          {/* ── 3. Voltaje ─────────────────────────────────────────────────── */}
+          {/* ── 3. Voltaje / Lectura ───────────────────────────────────────── */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="voltaje" className="text-sm font-medium">
-              <Zap className="mr-1.5 inline h-3.5 w-3.5 text-muted-foreground" />
-              Voltaje (V) <span className="text-destructive">*</span>
+              <InputIcon className={`mr-1.5 inline h-3.5 w-3.5 ${inputIconColor}`} />
+              {inputLabel} <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
               <Input
@@ -226,12 +282,12 @@ export function MedidorFormDialog({
                 step="0.01"
                 min="0.01"
                 max="99999.99"
-                placeholder="220.50"
+                placeholder={inputPlaceholder}
                 disabled={isSubmitting}
                 className={`pr-10 font-mono tabular-nums ${errors.voltaje ? 'border-destructive' : ''}`}
                 {...register('voltaje', { valueAsNumber: true })}
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">V</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">{inputUnit}</span>
             </div>
             {errors.voltaje && <p className="text-xs text-destructive">{errors.voltaje.message}</p>}
           </div>
@@ -273,6 +329,18 @@ export function MedidorFormDialog({
             {errors.observacion && <p className="text-xs text-destructive">{errors.observacion.message}</p>}
           </div>
         </form>
+
+        {/* ── Alert de error del trigger de BD ──────────────────────────────
+            Visible cuando el backend rechaza la inserción porque la lectura
+            actual es menor a la del mes anterior (RAISE EXCEPTION del trigger). */}
+        {!!submitError && (
+          <Alert variant="destructive" className="mt-1">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              {submitError}
+            </AlertDescription>
+          </Alert>
+        )}
 
         <DialogFooter className="gap-2 sm:gap-0">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>

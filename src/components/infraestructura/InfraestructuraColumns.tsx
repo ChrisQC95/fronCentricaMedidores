@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { ArrowUpDown, MoreHorizontal, Pencil, Trash2, GitBranch } from 'lucide-react'
+import { ArrowUpDown, MoreHorizontal, Pencil, Trash2, GitBranch, Warehouse } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -10,23 +10,23 @@ import type { InfraestructuraResponse, TipoNivel } from '@/services/infraestruct
 
 // Colores por tipo de nivel
 const TIPO_COLORS: Record<TipoNivel, string> = {
-  UNIDAD:        'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  BLOQUE:        'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-  PISO:          'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  ENST:          'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  UNIDAD: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  BLOQUE: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  PISO: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  ENST: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   ESPACIO_COMUN: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400',
 }
 
 const TIPO_LABELS: Record<TipoNivel, string> = {
-  UNIDAD:        'Unidad',
-  BLOQUE:        'Bloque',
-  PISO:          'Piso',
-  ENST:          'ENST',
+  UNIDAD: 'Unidad',
+  BLOQUE: 'Bloque',
+  PISO: 'Piso',
+  ENST: 'ENST',
   ESPACIO_COMUN: 'Espacio Común',
 }
 
 interface ColumnActions {
-  onEdit:   (item: InfraestructuraResponse) => void
+  onEdit: (item: InfraestructuraResponse) => void
   onDelete: (item: InfraestructuraResponse) => void
 }
 
@@ -87,6 +87,33 @@ export function getInfraestructuraColumns({ onEdit, onDelete }: ColumnActions): 
       cell: ({ row }) => (
         <span className="font-medium text-foreground">{row.getValue('nombre')}</span>
       ),
+    },
+    {
+      accessorKey: 'espacioName',
+      header: () => (
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Espacio
+        </span>
+      ),
+      cell: ({ row }) => {
+        const v = row.getValue<number | null>('espacioName')
+        if (v === 1) return (
+          <Badge className="gap-1 text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 font-medium">
+            <Warehouse className="h-3 w-3" /> Oficina
+          </Badge>
+        )
+        if (v === 2) return (
+          <Badge className="gap-1 text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 font-medium">
+            <Warehouse className="h-3 w-3" /> Almacén
+          </Badge>
+        )
+        if (v === 3) return (
+          <Badge className="gap-1 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-0 font-medium">
+            <Warehouse className="h-3 w-3" /> Centro Comercial
+          </Badge>
+        )
+        return <span className="text-xs text-muted-foreground italic">—</span>
+      },
     },
     {
       accessorKey: 'parentNombre',

@@ -23,6 +23,12 @@ export interface InfraestructuraResponse {
   tipo: TipoNivel
   nombre: string
   glosa: string | null
+  /** 1 = Oficina, 2 = Almacén, 3 = Centro Comercial. null para nodos no-espacio (edificios, pisos) */
+  espacioName: number | null
+  /** Suma de consumo de electricidad (kWh) para esta infraestructura. 0 si sin datos. */
+  totalConsumoElectricidad: number
+  /** Suma de consumo de agua (m³) para esta infraestructura. 0 si sin datos. */
+  totalConsumoAgua: number
   createdAt?: string
   updatedAt?: string
 }
@@ -33,6 +39,8 @@ export interface InfraestructuraRequest {
   tipo: TipoNivel
   nombre: string
   glosa?: string | null
+  /** 1 = Oficina, 2 = Almacén, 3 = Centro Comercial. Omitir o null para nodos no-espacio. */
+  espacioName?: number | null
 }
 
 // ─── Servicio ─────────────────────────────────────────────────────────────────

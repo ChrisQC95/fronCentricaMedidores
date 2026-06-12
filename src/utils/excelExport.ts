@@ -79,18 +79,24 @@ export function buildPivot(
   records.forEach(r => monthSet.add(r.fechaRegistro.slice(0, 7)))
   const months = Array.from(monthSet).sort()
 
-  // Agrupar registros por arrendatario (infraestructuraId) y mes
+  // Agrupar registros por arrendatario (infraestructuraId) y tipoServicio
   const tenantMap = new Map<
-    number,
+    string,
     { ancestors: Ancestors; byMonth: Record<string, PivotCell> }
   >()
 
   for (const record of records) {
     const id = record.infraestructuraId
-    if (!tenantMap.has(id)) {
-      tenantMap.set(id, { ancestors: getAncestors(id, infraMap), byMonth: {} })
+    const tipo = record.tipoServicio
+    const key = `${id}_${tipo}`
+
+    if (!tenantMap.has(key)) {
+      const ancestors = getAncestors(id, infraMap)
+      const tipoLabel = tipo === 1 ? '(Luz)' : tipo === 2 ? '(Agua)' : ''
+      ancestors.arrendatario = `${ancestors.arrendatario} ${tipoLabel}`
+      tenantMap.set(key, { ancestors, byMonth: {} })
     }
-    const entry    = tenantMap.get(id)!
+    const entry    = tenantMap.get(key)!
     const monthKey = record.fechaRegistro.slice(0, 7)
     // Si hay varios registros en el mismo mes: tomar el de mayor voltaje
     const existing = entry.byMonth[monthKey]
@@ -104,9 +110,9 @@ export function buildPivot(
   }
 
   // Construir árbol Edificio → Piso → Arrendatario
-  const edificioMap = new Map<string, Map<string, Map<number, ArrendatarioRow>>>()
+  const edificioMap = new Map<string, Map<string, Map<string, ArrendatarioRow>>>()
 
-  for (const [id, { ancestors, byMonth }] of tenantMap) {
+  for (const [key, { ancestors, byMonth }] of tenantMap) {
     if (!edificioMap.has(ancestors.edificio)) {
       edificioMap.set(ancestors.edificio, new Map())
     }
@@ -115,7 +121,8 @@ export function buildPivot(
       pisoMap.set(ancestors.piso, new Map())
     }
     const arrendMap = pisoMap.get(ancestors.piso)!
-    arrendMap.set(id, { nombre: ancestors.arrendatario, infraestructuraId: id, byMonth })
+    const originalId = parseInt(key.split('_')[0], 10)
+    arrendMap.set(key, { nombre: ancestors.arrendatario, infraestructuraId: originalId, byMonth })
   }
 
   const pivot: EdificioGroup[] = Array.from(edificioMap.entries()).map(([edName, pisoMap]) => ({
