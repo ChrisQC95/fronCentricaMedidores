@@ -6,8 +6,9 @@ export interface MedidoresPorMesDTO {
 }
 
 export interface ConsumoMensualDTO {
-  mes:     string
-  consumo: number
+  mes:        string
+  consumoLuz: number
+  consumoAgua: number
 }
 
 export interface ActividadRecienteDTO {
@@ -19,16 +20,23 @@ export interface ActividadRecienteDTO {
   consumo:       number | null
   fechaRegistro: string
   createdAt:     string | null
+  tipoServicio:  number | null
 }
 
 export interface DashboardStats {
-  totalEmpresas:     number
-  totalEdificios:    number
-  totalPisos:        number
-  totalEnst:         number
-  medidoresPorMes:   MedidoresPorMesDTO[]
-  consumoMensual:    ConsumoMensualDTO[]
-  actividadReciente: ActividadRecienteDTO[]
+  totalEmpresas:       number
+  totalElectricidad:   number
+  totalAgua:           number
+  totalPuntosMedicion: number
+  totalEdificios:      number
+  totalPisos:          number
+  totalEnst:           number
+  pendingReadings:     number
+  consumoTendenciaPct: number | null
+  medidoresPorMes:     MedidoresPorMesDTO[]
+  consumoMensualLuz:   ConsumoMensualDTO[]
+  consumoMensualAgua:  ConsumoMensualDTO[]
+  actividadReciente:   ActividadRecienteDTO[]
 }
 
 class DashboardService {

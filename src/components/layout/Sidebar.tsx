@@ -32,8 +32,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </div>
         {!collapsed && (
           <div className="min-w-0 overflow-hidden">
-            <p className="truncate text-sm font-bold text-white leading-tight">Centrica</p>
-            <p className="truncate text-[11px] font-medium text-blue-400">Medidores</p>
+            <p className="truncate text-sm font-bold text-white leading-tight">Centricorp S.A.C</p>
+            <p className="truncate text-[11px] font-medium text-blue-400">Gestión de medidores</p>
           </div>
         )}
       </div>

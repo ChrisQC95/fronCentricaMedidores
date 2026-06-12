@@ -164,7 +164,7 @@ export function LoginPage() {
         </Card>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          © 2025 Centrica Medidores. Todos los derechos reservados.
+          © 2026 Centrica Medidores. Todos los derechos reservados.
         </p>
       </div>
     </div>

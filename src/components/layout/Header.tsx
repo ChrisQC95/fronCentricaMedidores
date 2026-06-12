@@ -88,8 +88,8 @@ export function Header({ title = 'Dashboard' }: HeaderProps) {
 
       {/* ── Desktop Title ── */}
       <div className="hidden md:block">
-        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-        <p className="text-xs text-muted-foreground">Plataforma de Gestión de Medidores</p>
+        <h2 className="text-lg font-semibold text-foreground"></h2>
+        <p className="text-xs text-muted-foreground"></p>
       </div>
 
       {/* ── Actions (Theme, Notifs, Avatar) ── */}
