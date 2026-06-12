@@ -23,7 +23,7 @@ interface HeaderProps {
   title?: string
 }
 
-export function Header({ title = 'Dashboard' }: HeaderProps) {
+export function Header({ title: _title = 'Dashboard' }: HeaderProps) {
   const { theme, setTheme } = useTheme()
   const { logout, username } = useAuth()
   const navigate = useNavigate()
