@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { dashboardService, type DashboardStats, type ConsumoMensualDTO } from '@/services/dashboard.service'
+import { dashboardService, type DashboardStats } from '@/services/dashboard.service'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ServicioFilter = 'electricidad' | 'agua' | 'ambos'
