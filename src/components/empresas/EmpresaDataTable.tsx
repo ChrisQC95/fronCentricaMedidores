@@ -3,7 +3,6 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
@@ -16,18 +15,54 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
-interface DataTableProps<TData, TValue> {
+// ─── Props para paginación local (client-side) ────────────────────────────────
+interface ClientPaginationProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   searchPlaceholder?: string
-  searchColumn?: string
+  /** Cuando se omite serverPagination, la tabla maneja su propia paginación */
+  serverPagination?: never
+  onPageChange?: never
+  pageIndex?: never
+  pageCount?: never
+  totalElements?: never
+  isLoading?: boolean
 }
+
+// ─── Props para paginación del servidor (server-side) ────────────────────────
+interface ServerPaginationProps<TData, TValue> {
+  columns: ColumnDef<TData, TValue>[]
+  data: TData[]
+  searchPlaceholder?: string
+  /** Activar Server-Side Pagination */
+  serverPagination: true
+  /** Callback que el padre llama cuando el usuario cambia de página */
+  onPageChange: (page: number) => void
+  /** Página actual (0-indexed) */
+  pageIndex: number
+  /** Total de páginas devueltas por el backend */
+  pageCount: number
+  /** Total de elementos (para mostrar en el footer) */
+  totalElements: number
+  isLoading?: boolean
+}
+
+type DataTableProps<TData, TValue> =
+  | ClientPaginationProps<TData, TValue>
+  | ServerPaginationProps<TData, TValue>
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   searchPlaceholder = 'Buscar...',
-
+  serverPagination,
+  onPageChange,
+  pageIndex = 0,
+  pageCount = 1,
+  totalElements,
+  isLoading = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
@@ -35,28 +70,64 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter },
+    state: {
+      sorting,
+      // En server-side, desactivamos el globalFilter local (busca el padre)
+      globalFilter: serverPagination ? undefined : globalFilter,
+      ...(serverPagination && {
+        pagination: { pageIndex, pageSize: data.length || 10 },
+      }),
+    },
     onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
+    onGlobalFilterChange: serverPagination ? undefined : setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 10 } },
+    // En client-side activamos filtros y paginación propios de tanstack
+    ...(serverPagination
+      ? {
+          manualPagination: true,
+          pageCount,
+        }
+      : {
+          getFilteredRowModel: getFilteredRowModel(),
+          initialState: { pagination: { pageSize: 10 } },
+        }),
   })
+
+  const isServerSide = Boolean(serverPagination)
+  const currentPage  = isServerSide ? pageIndex : table.getState().pagination.pageIndex
+  const totalPages   = isServerSide ? pageCount  : table.getPageCount()
+  const canPrev      = currentPage > 0
+  const canNext      = currentPage < totalPages - 1
+
+  const handlePrev = () => {
+    if (!canPrev) return
+    isServerSide ? onPageChange?.(currentPage - 1) : table.previousPage()
+  }
+
+  const handleNext = () => {
+    if (!canNext) return
+    isServerSide ? onPageChange?.(currentPage + 1) : table.nextPage()
+  }
+
+  const displayCount = isServerSide
+    ? (totalElements ?? data.length)
+    : table.getFilteredRowModel().rows.length
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Search */}
-      <div className="relative max-w-xs">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder={searchPlaceholder}
-          value={globalFilter}
-          onChange={e => setGlobalFilter(e.target.value)}
-          className="pl-9 h-9"
-        />
-      </div>
+      {/* Barra de búsqueda — solo visible en client-side */}
+      {!isServerSide && (
+        <div className="relative max-w-xs">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder={searchPlaceholder}
+            value={globalFilter}
+            onChange={e => setGlobalFilter(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
+      )}
 
       {/* Table */}
       <div className="rounded-lg border border-border overflow-hidden">
@@ -75,7 +146,16 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+                    Cargando...
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map(row => (
                 <TableRow
                   key={row.id}
@@ -99,21 +179,21 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      {/* Pagination */}
+      {/* Footer de paginación */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          {table.getFilteredRowModel().rows.length} registro(s) en total
+          {displayCount} registro(s) en total
         </span>
         <div className="flex items-center gap-2">
           <span>
-            Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
+            Página {currentPage + 1} de {totalPages || 1}
           </span>
           <Button
             variant="outline"
             size="icon"
             className="h-7 w-7"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            onClick={handlePrev}
+            disabled={!canPrev || isLoading}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -121,8 +201,8 @@ export function DataTable<TData, TValue>({
             variant="outline"
             size="icon"
             className="h-7 w-7"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
+            onClick={handleNext}
+            disabled={!canNext || isLoading}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

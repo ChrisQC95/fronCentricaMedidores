@@ -8,7 +8,7 @@ export function AdminRoute() {
     return <Navigate to="/login" replace />
   }
 
-  if (userRole !== 'ADMIN') {
+  if (userRole !== 'ADMIN' && userRole !== 'SUPERADMIN') {
     return <Navigate to="/medidores" replace />
   }
 

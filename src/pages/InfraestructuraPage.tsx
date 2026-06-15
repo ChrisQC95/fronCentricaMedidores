@@ -17,6 +17,10 @@ export function InfraestructuraPage() {
   // ─── Estado ────────────────────────────────────────────────────────────────
   const [items,     setItems]     = useState<InfraestructuraResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageCount, setPageCount] = useState(1)
+  const [totalElements, setTotalElements] = useState(0)
+  const PAGE_SIZE = 20
 
   // Dialog crear/editar
   const [dialogOpen,     setDialogOpen]     = useState(false)
@@ -29,11 +33,13 @@ export function InfraestructuraPage() {
   const [isDeleting,     setIsDeleting]     = useState(false)
 
   // ─── Carga ─────────────────────────────────────────────────────────────────
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (page = pageIndex) => {
     setIsLoading(true)
     try {
-      const data = await infraestructuraService.getAll()
-      setItems(data)
+      const data = await infraestructuraService.getAll(page, PAGE_SIZE)
+      setItems(data.content)
+      setPageCount(data.totalPages)
+      setTotalElements(data.totalElements)
     } catch (err) {
       const msg = isAxiosError(err)
         ? `Error ${err.response?.status ?? ''}: ${err.response?.data?.error ?? 'No se pudo cargar la infraestructura.'}`
@@ -42,9 +48,9 @@ export function InfraestructuraPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [pageIndex])
 
-  useEffect(() => { fetchItems() }, [fetchItems])
+  useEffect(() => { fetchItems(pageIndex) }, [fetchItems, pageIndex])
 
   // ─── Handlers: Abrir dialogs ───────────────────────────────────────────────
   const handleOpenCreate = () => { setSelectedItem(null); setDialogOpen(true) }
@@ -74,7 +80,8 @@ export function InfraestructuraPage() {
       } else {
         // CREAR
         const created = await infraestructuraService.create(payload)
-        setItems(prev => [created, ...prev])
+        setItems(prev => [created, ...prev].slice(0, PAGE_SIZE))
+        setTotalElements(prev => prev + 1)
         toast.success('Nodo registrado', {
           description: `"${created.nombre}" fue agregado a la infraestructura.`,
         })
@@ -106,6 +113,7 @@ export function InfraestructuraPage() {
     try {
       await infraestructuraService.delete(itemToDelete.id)
       setItems(prev => prev.filter(i => i.id !== itemToDelete.id))
+      setTotalElements(prev => Math.max(0, prev - 1))
       toast.success('Nodo eliminado', {
         description: `"${itemToDelete.nombre}" fue eliminado del sistema.`,
       })
@@ -148,7 +156,7 @@ export function InfraestructuraPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={fetchItems} disabled={isLoading} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchItems(pageIndex)} disabled={isLoading} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
@@ -162,8 +170,8 @@ export function InfraestructuraPage() {
       {/* Stats */}
       <div className="flex items-center gap-3 flex-wrap">
         <Badge variant="secondary" className="gap-1.5 px-3 py-1 text-xs">
-          <span className="font-bold text-primary">{items.length}</span>
-          nodo{items.length !== 1 ? 's' : ''} en total
+          <span className="font-bold text-primary">{totalElements}</span>
+          nodo{totalElements !== 1 ? 's' : ''} en total
         </Badge>
         <Badge variant="outline" className="gap-1.5 px-3 py-1 text-xs">
           <Layers className="h-3 w-3 text-primary" />
@@ -196,6 +204,12 @@ export function InfraestructuraPage() {
             <DataTable
               columns={columns}
               data={items}
+              serverPagination={true}
+              pageIndex={pageIndex}
+              pageCount={pageCount}
+              totalElements={totalElements}
+              onPageChange={setPageIndex}
+              isLoading={isLoading}
               searchPlaceholder="Buscar por nombre, empresa o tipo..."
             />
           )}

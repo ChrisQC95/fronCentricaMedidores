@@ -38,10 +38,16 @@ export function MedidoresPage() {
   const { userRole } = useAuth()
 
   // ─── Estado principal ──────────────────────────────────────────────────────
-  const [registros,    setRegistros]    = useState<RegistroMedidor[]>([])
-  const [isLoading,    setIsLoading]    = useState(true)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isExporting,  setIsExporting]  = useState(false)
+  const [registros,     setRegistros]     = useState<RegistroMedidor[]>([])
+  const [isLoading,     setIsLoading]     = useState(true)
+  const [isSubmitting,  setIsSubmitting]  = useState(false)
+  const [isExporting,   setIsExporting]   = useState(false)
+
+  // Paginación del servidor
+  const [pageIndex,     setPageIndex]     = useState(0)
+  const [pageCount,     setPageCount]     = useState(1)
+  const [totalElements, setTotalElements] = useState(0)
+  const PAGE_SIZE = 15
 
   // Filtro de tabla: 1=Electricidad, 2=Agua, 3=Ambos
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>(3)
@@ -58,13 +64,14 @@ export function MedidoresPage() {
   const [submitError, setSubmitError] = useState<string | undefined>()
 
   // ─── Carga de datos ────────────────────────────────────────────────────────
-  const fetchRegistros = useCallback(async () => {
+  const fetchRegistros = useCallback(async (page = pageIndex) => {
     setIsLoading(true)
     try {
-      // Cargamos todos y filtramos en cliente para que el cambio de filtro
-      // sea instantáneo sin llamada extra al backend.
-      const data = await medidorService.getAll()
-      setRegistros(data.sort((a, b) => b.fechaRegistro.localeCompare(a.fechaRegistro)))
+      const tipoParam = tipoFiltro !== 3 ? tipoFiltro : undefined
+      const response = await medidorService.getAll(page, PAGE_SIZE, tipoParam)
+      setRegistros(response.content)
+      setPageCount(response.totalPages)
+      setTotalElements(response.totalElements)
     } catch (err) {
       const msg = isAxiosError(err)
         ? `Error ${err.response?.status ?? ''}: ${err.response?.data?.error ?? 'No se pudieron cargar los registros.'}`
@@ -73,15 +80,26 @@ export function MedidoresPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [pageIndex, tipoFiltro])
 
-  useEffect(() => { fetchRegistros() }, [fetchRegistros])
+  // Cuando cambia el filtro, volvemos a la página 0
+  useEffect(() => {
+    setPageIndex(0)
+    fetchRegistros(0)
+  }, [tipoFiltro])
 
-  // ─── Datos filtrados según tipoFiltro ──────────────────────────────────────
-  const registrosFiltrados = useMemo(() => {
-    if (tipoFiltro === 3) return registros
-    return registros.filter(r => r.tipoServicio === tipoFiltro)
-  }, [registros, tipoFiltro])
+  // Carga inicial
+  useEffect(() => {
+    fetchRegistros(pageIndex)
+  }, [pageIndex])
+
+  // Handler para cuando el DataTable pide cambiar de página
+  const handlePageChange = (newPage: number) => {
+    setPageIndex(newPage)
+  }
+
+  // El filtrado lo hace el servidor; registros ya viene filtrado
+  const registrosFiltrados = registros
 
   // ─── Estadísticas separadas por tipo ──────────────────────────────────────
   const stats = useMemo(() => {
@@ -170,11 +188,12 @@ export function MedidoresPage() {
     const toastId = toast.loading('Descargando Reporte Excel...')
 
     try {
-      const infraList = await infraestructuraService.getAll()
-      const infraMap = new Map(infraList.map(i => [i.id, i]))
+      const infraResponse = await infraestructuraService.getAll(0, 1000)
+      const infraMap = new Map(infraResponse.content.map(i => [i.id, i]))
 
       const tipo = parseInt(tipoServicioExport, 10)
-      const filteredRecords = registros.filter(r => {
+      const registrosResponse = await medidorService.getAll(0, 10000, tipo === 0 ? undefined : tipo)
+      const filteredRecords = registrosResponse.content.filter(r => {
         const inDate = r.fechaRegistro >= dateFrom && r.fechaRegistro <= dateTo
         const inType = tipo === 0 ? true : r.tipoServicio === tipo
         return inDate && inType
@@ -223,7 +242,7 @@ export function MedidoresPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={fetchRegistros} disabled={isLoading} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchRegistros(pageIndex)} disabled={isLoading} className="gap-2">
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
@@ -474,20 +493,17 @@ export function MedidoresPage() {
 
         <div className="p-0 sm:p-6 w-full overflow-x-auto">
           <div className="min-w-[800px] p-4 sm:p-0">
-            {isLoading ? (
-              <div className="flex flex-col gap-3">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-12 animate-pulse rounded-lg bg-muted/60"
-                    style={{ opacity: 1 - i * 0.12 }} />
-                ))}
-              </div>
-            ) : (
-              <DataTable
-                columns={columns}
-                data={registrosFiltrados}
-                searchPlaceholder="Buscar por empresa, punto de medición..."
-              />
-            )}
+            <DataTable
+              columns={columns}
+              data={registrosFiltrados}
+              searchPlaceholder="Buscar por empresa, punto de medición..."
+              serverPagination={true}
+              pageIndex={pageIndex}
+              pageCount={pageCount}
+              totalElements={totalElements}
+              onPageChange={handlePageChange}
+              isLoading={isLoading}
+            />
           </div>
         </div>
       </div>

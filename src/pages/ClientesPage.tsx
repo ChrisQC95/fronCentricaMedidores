@@ -10,13 +10,20 @@ import { DeleteEmpresaDialog } from '@/components/empresas/DeleteEmpresaDialog'
 import { getEmpresaColumns } from '@/components/empresas/EmpresaColumns'
 import { empresaService, type Empresa } from '@/services/empresa.service'
 
+import { CargaMasivaEmpresaDialog } from '@/components/empresas/CargaMasivaEmpresaDialog'
+
 export function ClientesPage() {
   // ─── Estado ────────────────────────────────────────────────────────────────
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageCount, setPageCount] = useState(1)
+  const [totalElements, setTotalElements] = useState(0)
+  const PAGE_SIZE = 10
 
   // Dialog crear/editar
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -26,11 +33,13 @@ export function ClientesPage() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   // ─── Carga de datos ────────────────────────────────────────────────────────
-  const fetchEmpresas = useCallback(async () => {
+  const fetchEmpresas = useCallback(async (page = pageIndex) => {
     setIsLoading(true)
     try {
-      const data = await empresaService.getAll()
-      setEmpresas(data)
+      const data = await empresaService.getAll(page, PAGE_SIZE)
+      setEmpresas(data.content)
+      setPageCount(data.totalPages)
+      setTotalElements(data.totalElements)
     } catch (err) {
       const msg = isAxiosError(err)
         ? `Error ${err.response?.status ?? ''}: ${err.response?.data?.error ?? 'No se pudieron cargar las empresas.'}`
@@ -39,11 +48,11 @@ export function ClientesPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [pageIndex])
 
   useEffect(() => {
-    fetchEmpresas()
-  }, [fetchEmpresas])
+    fetchEmpresas(pageIndex)
+  }, [fetchEmpresas, pageIndex])
 
   // ─── Handlers: Abrir dialogs ───────────────────────────────────────────────
   const handleOpenCreate = () => {
@@ -68,6 +77,7 @@ export function ClientesPage() {
       if (selectedEmpresa) {
         // EDITAR
         const updated = await empresaService.update(selectedEmpresa.ruc, {
+          ruc: selectedEmpresa.ruc,
           razonSocial: values.razonSocial,
         })
         setEmpresas(prev =>
@@ -82,7 +92,8 @@ export function ClientesPage() {
           ruc: values.ruc,
           razonSocial: values.razonSocial,
         })
-        setEmpresas(prev => [created, ...prev])
+        setEmpresas(prev => [created, ...prev].slice(0, PAGE_SIZE))
+        setTotalElements(prev => prev + 1)
         toast.success('Empresa registrada', {
           description: `${created.razonSocial} fue agregada correctamente.`,
         })
@@ -114,6 +125,7 @@ export function ClientesPage() {
     try {
       await empresaService.delete(empresaToDelete.ruc)
       setEmpresas(prev => prev.filter(e => e.ruc !== empresaToDelete.ruc))
+      setTotalElements(prev => Math.max(0, prev - 1))
       toast.success('Empresa eliminada', {
         description: `${empresaToDelete.razonSocial} fue eliminada del sistema.`,
       })
@@ -155,13 +167,24 @@ export function ClientesPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={fetchEmpresas}
+            onClick={() => fetchEmpresas(pageIndex)}
             disabled={isLoading}
             className="gap-2"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setUploadDialogOpen(true)}
+            className="gap-2 border-primary/20 text-primary hover:bg-primary/5"
+          >
+            <Plus className="h-4 w-4" /> {/* Or Upload icon, but reusing what's here */}
+            Carga Masiva
+          </Button>
+
           <Button
             size="sm"
             onClick={handleOpenCreate}
@@ -176,8 +199,8 @@ export function ClientesPage() {
       {/* Stats Badge */}
       <div className="flex items-center gap-3">
         <Badge variant="secondary" className="gap-1.5 px-3 py-1 text-xs">
-          <span className="font-bold text-primary">{empresas.length}</span>
-          empresa{empresas.length !== 1 ? 's' : ''} registrada{empresas.length !== 1 ? 's' : ''}
+          <span className="font-bold text-primary">{totalElements}</span>
+          empresa{totalElements !== 1 ? 's' : ''} registrada{totalElements !== 1 ? 's' : ''}
         </Badge>
       </div>
 
@@ -206,6 +229,12 @@ export function ClientesPage() {
             <DataTable
               columns={columns}
               data={empresas}
+              serverPagination={true}
+              pageIndex={pageIndex}
+              pageCount={pageCount}
+              totalElements={totalElements}
+              onPageChange={setPageIndex}
+              isLoading={isLoading}
               searchPlaceholder="Buscar por razón social o RUC..."
             />
           )}
@@ -227,6 +256,15 @@ export function ClientesPage() {
         empresa={empresaToDelete}
         onConfirm={handleDelete}
         isDeleting={isDeleting}
+      />
+
+      <CargaMasivaEmpresaDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        onSuccess={() => {
+          setPageIndex(0)
+          fetchEmpresas(0)
+        }}
       />
     </div>
   )

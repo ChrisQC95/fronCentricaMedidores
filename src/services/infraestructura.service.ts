@@ -1,4 +1,5 @@
 import api from '@/lib/api'
+import type { PageableResponse } from '@/types/pagination'
 
 // ─── Enum — coincide con TipoNivel de PostgreSQL/Java ────────────────────────
 
@@ -46,9 +47,13 @@ export interface InfraestructuraRequest {
 // ─── Servicio ─────────────────────────────────────────────────────────────────
 
 export const infraestructuraService = {
-  /** GET /api/infraestructura — todos los nodos */
-  getAll: (): Promise<InfraestructuraResponse[]> =>
-    api.get<InfraestructuraResponse[]>('/api/infraestructura').then(r => r.data),
+  /**
+   * GET /api/infraestructura — lista paginada (Server-Side Pagination).
+   * @param page Número de página (0-indexed, default: 0)
+   * @param size Registros por página (default: 20)
+   */
+  getAll: (page = 0, size = 20): Promise<PageableResponse<InfraestructuraResponse>> =>
+    api.get<PageableResponse<InfraestructuraResponse>>('/api/infraestructura', { params: { page, size } }).then(r => r.data),
 
   /** GET /api/infraestructura/{id} */
   getById: (id: number): Promise<InfraestructuraResponse> =>

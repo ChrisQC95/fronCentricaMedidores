@@ -96,8 +96,8 @@ export function InfraestructuraDialog({
   useEffect(() => {
     if (!open) return
     setLoadingEmpresas(true)
-    empresaService.getAll()
-      .then(setEmpresas)
+    empresaService.getAll(0, 1000)
+      .then(response => setEmpresas(response.content))
       .catch(() => toast.error('No se pudieron cargar las empresas.'))
       .finally(() => setLoadingEmpresas(false))
   }, [open])

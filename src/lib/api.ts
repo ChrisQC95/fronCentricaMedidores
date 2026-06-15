@@ -29,11 +29,12 @@ api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
     // Si el token expiró o no es válido → limpiar sesión y redirigir al login
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
       const isLoginEndpoint = error.config?.url?.includes('/api/auth/login')
       if (!isLoginEndpoint) {
         localStorage.removeItem(TOKEN_KEY)
         localStorage.removeItem(USERNAME_KEY)
+        localStorage.removeItem('user_role')
         // Redirigir a login sin usar el router (fuera del árbol React)
         window.location.href = '/login'
       }
