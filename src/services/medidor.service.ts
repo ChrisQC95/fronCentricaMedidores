@@ -54,6 +54,26 @@ export const medidorService = {
     api.post<RegistroMedidor>('/api/medidores', data).then(r => r.data),
 
   /** GET /api/medidores/reporte?mes=5&anio=2025 — lista plana para Excel */
-  getReporte: (mes: number, anio: number, tipoServicio: number): Promise<RegistroMedidor[]> =>
-    api.get<RegistroMedidor[]>(`/api/medidores/reporte?mes=${mes}&anio=${anio}&tipoServicio=${tipoServicio}`).then(r => r.data),
+  getReporte: (mes: number, anio: number, tipoServicio?: number): Promise<RegistroMedidor[]> => {
+    const params: Record<string, number> = { mes, anio }
+    if (tipoServicio) params.tipoServicio = tipoServicio
+    return api.get<RegistroMedidor[]>('/api/medidores/reporte', { params }).then(r => r.data)
+  },
+
+  downloadReporteExcel: async (desde: string, hasta: string, tipoServicio?: number): Promise<void> => {
+    const params: Record<string, string | number> = { desde, hasta }
+    if (tipoServicio) params.tipoServicio = tipoServicio
+    const response = await api.get<Blob>('/api/medidores/reporte/excel', {
+      params,
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(response.data)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `reporte-medidores-${desde}_${hasta}.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  },
 }

@@ -55,6 +55,11 @@ export const infraestructuraService = {
   getAll: (page = 0, size = 20): Promise<PageableResponse<InfraestructuraResponse>> =>
     api.get<PageableResponse<InfraestructuraResponse>>('/api/infraestructura', { params: { page, size } }).then(r => r.data),
 
+  search: (empresaRuc?: string, q = '', page = 0, size = 20): Promise<PageableResponse<InfraestructuraResponse>> =>
+    api.get<PageableResponse<InfraestructuraResponse>>('/api/infraestructura/search', {
+      params: { empresaRuc, q, page, size },
+    }).then(r => r.data),
+
   /** GET /api/infraestructura/{id} */
   getById: (id: number): Promise<InfraestructuraResponse> =>
     api.get<InfraestructuraResponse>(`/api/infraestructura/${id}`).then(r => r.data),

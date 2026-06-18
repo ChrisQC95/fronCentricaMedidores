@@ -25,6 +25,7 @@ interface ClientPaginationProps<TData, TValue> {
   onPageChange?: never
   pageIndex?: never
   pageCount?: never
+  pageSize?: never
   totalElements?: never
   isLoading?: boolean
 }
@@ -44,6 +45,8 @@ interface ServerPaginationProps<TData, TValue> {
   pageCount: number
   /** Total de elementos (para mostrar en el footer) */
   totalElements: number
+  /** Registros por pagina configurados en el backend */
+  pageSize?: number
   isLoading?: boolean
 }
 
@@ -61,6 +64,7 @@ export function DataTable<TData, TValue>({
   onPageChange,
   pageIndex = 0,
   pageCount = 1,
+  pageSize = data.length || 10,
   totalElements,
   isLoading = false,
 }: DataTableProps<TData, TValue>) {
@@ -75,7 +79,7 @@ export function DataTable<TData, TValue>({
       // En server-side, desactivamos el globalFilter local (busca el padre)
       globalFilter: serverPagination ? undefined : globalFilter,
       ...(serverPagination && {
-        pagination: { pageIndex, pageSize: data.length || 10 },
+        pagination: { pageIndex, pageSize },
       }),
     },
     onSortingChange: setSorting,

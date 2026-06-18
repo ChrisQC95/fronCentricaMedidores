@@ -232,6 +232,7 @@ export function ClientesPage() {
               serverPagination={true}
               pageIndex={pageIndex}
               pageCount={pageCount}
+              pageSize={PAGE_SIZE}
               totalElements={totalElements}
               onPageChange={setPageIndex}
               isLoading={isLoading}

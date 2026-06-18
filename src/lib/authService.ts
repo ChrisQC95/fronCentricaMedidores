@@ -8,12 +8,17 @@ export interface LoginPayload {
 }
 
 /** Coincide con el LoginResponse del backend:
- *  { "token": "eyJ...", "username": "admin", "type": "Bearer" }
+ *  { "username": "admin", "role": "ADMIN" }
  */
 export interface LoginResult {
-  token: string
   username: string
-  type: string
+  role?: string | null
+}
+
+export interface AuthMe {
+  username: string
+  role: string
+  tenantId: string
 }
 
 // ─── Funciones de API ─────────────────────────────────────────────────────────
@@ -25,5 +30,18 @@ export interface LoginResult {
  */
 export async function loginRequest(payload: LoginPayload): Promise<LoginResult> {
   const { data } = await api.post<LoginResult>('/api/auth/login', payload)
+  return data
+}
+
+export async function logoutRequest(): Promise<void> {
+  await api.post('/api/auth/logout')
+}
+
+export async function csrfRequest(): Promise<void> {
+  await api.get('/api/auth/csrf')
+}
+
+export async function meRequest(): Promise<AuthMe> {
+  const { data } = await api.get<AuthMe>('/api/auth/me')
   return data
 }

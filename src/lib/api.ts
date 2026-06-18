@@ -1,44 +1,87 @@
-import axios, { type AxiosError } from 'axios'
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
 export const TOKEN_KEY = 'centrica_token'
 export const USERNAME_KEY = 'centrica_user'
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://backendcentricamedidores.onrender.com'
 
-// ─── Instancia Axios ──────────────────────────────────────────────────────────
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://backendcentricamedidores.onrender.com'
+const XSRF_COOKIE_NAME = 'XSRF-TOKEN'
+const XSRF_HEADER_NAME = 'X-XSRF-TOKEN'
+const UNSAFE_METHODS = new Set(['post', 'put', 'patch', 'delete'])
+
+let csrfRequestInFlight: Promise<string | null> | null = null
+
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 10_000,
+  withCredentials: true,
+  xsrfCookieName: XSRF_COOKIE_NAME,
+  xsrfHeaderName: XSRF_HEADER_NAME,
+  withXSRFToken: true,
 })
 
-// ─── Interceptor de Request: adjunta Bearer token ────────────────────────────
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem(TOKEN_KEY)
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => Promise.reject(error)
-)
+function readCookie(name: string): string | null {
+  const cookie = document.cookie
+    .split('; ')
+    .find(row => row.startsWith(`${name}=`))
 
-// ─── Interceptor de Response: maneja 401 global (token expirado) ─────────────
+  return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : null
+}
+
+async function ensureCsrfToken(): Promise<string | null> {
+  const existingToken = readCookie(XSRF_COOKIE_NAME)
+  if (existingToken) return existingToken
+
+  if (!csrfRequestInFlight) {
+    csrfRequestInFlight = fetch(`${BASE_URL}/api/auth/csrf`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    })
+      .then(async response => {
+        if (!response.ok) return null
+        const body = await response.json().catch(() => null)
+        return readCookie(XSRF_COOKIE_NAME) || body?.token || null
+      })
+      .finally(() => {
+        csrfRequestInFlight = null
+      })
+  }
+
+  return csrfRequestInFlight
+}
+
+function isAuthLogin(config: InternalAxiosRequestConfig): boolean {
+  return Boolean(config.url?.includes('/api/auth/login') || config.url === '/auth/login')
+}
+
+api.interceptors.request.use(async config => {
+  const method = (config.method || 'get').toLowerCase()
+
+  if (UNSAFE_METHODS.has(method) && !isAuthLogin(config)) {
+    const csrfToken = await ensureCsrfToken()
+    if (csrfToken) {
+      config.headers.set(XSRF_HEADER_NAME, csrfToken)
+    }
+  }
+
+  return config
+})
+
 api.interceptors.response.use(
-  (response) => response,
+  response => response,
   (error: AxiosError) => {
-    // Si el token expiró o no es válido → limpiar sesión y redirigir al login
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    if (error.response?.status === 401) {
       const isLoginEndpoint = error.config?.url?.includes('/api/auth/login')
       if (!isLoginEndpoint) {
         localStorage.removeItem(TOKEN_KEY)
         localStorage.removeItem(USERNAME_KEY)
         localStorage.removeItem('user_role')
-        // Redirigir a login sin usar el router (fuera del árbol React)
+        localStorage.removeItem('tenant_id')
         window.location.href = '/login'
       }
     }
+
     return Promise.reject(error)
   }
 )

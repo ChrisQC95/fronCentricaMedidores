@@ -13,8 +13,6 @@ import { getMedidorColumns } from '@/components/medidores/MedidorColumns'
 import { MedidorFormDialog, type MedidorFormValues } from '@/components/medidores/MedidorFormDialog'
 import { MedidorViewDialog }  from '@/components/medidores/MedidorViewDialog'
 import { medidorService, type RegistroMedidor } from '@/services/medidor.service'
-import { infraestructuraService } from '@/services/infraestructura.service'
-import { generateMedidoresExcel, buildPivot } from '@/utils/excelExport'
 import { useAuth } from '@/context/AuthContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -188,25 +186,8 @@ export function MedidoresPage() {
     const toastId = toast.loading('Descargando Reporte Excel...')
 
     try {
-      const infraResponse = await infraestructuraService.getAll(0, 1000)
-      const infraMap = new Map(infraResponse.content.map(i => [i.id, i]))
-
       const tipo = parseInt(tipoServicioExport, 10)
-      const registrosResponse = await medidorService.getAll(0, 10000, tipo === 0 ? undefined : tipo)
-      const filteredRecords = registrosResponse.content.filter(r => {
-        const inDate = r.fechaRegistro >= dateFrom && r.fechaRegistro <= dateTo
-        const inType = tipo === 0 ? true : r.tipoServicio === tipo
-        return inDate && inType
-      })
-
-      if (filteredRecords.length === 0) {
-        toast.dismiss(toastId)
-        toast.warning('No hay registros en este rango para exportar.')
-        return
-      }
-
-      const { pivot, months } = buildPivot(filteredRecords, infraMap)
-      await generateMedidoresExcel(pivot, months, dateFrom, dateTo)
+      await medidorService.downloadReporteExcel(dateFrom, dateTo, tipo === 0 ? undefined : tipo)
 
       toast.dismiss(toastId)
       toast.success('Excel descargado con éxito')
@@ -500,6 +481,7 @@ export function MedidoresPage() {
               serverPagination={true}
               pageIndex={pageIndex}
               pageCount={pageCount}
+              pageSize={PAGE_SIZE}
               totalElements={totalElements}
               onPageChange={handlePageChange}
               isLoading={isLoading}

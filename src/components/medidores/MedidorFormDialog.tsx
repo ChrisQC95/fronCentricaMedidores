@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PhotoDropzone } from './PhotoDropzone'
 import { empresaService, type Empresa } from '@/services/empresa.service'
+import { useAuth } from '@/context/AuthContext'
 import {
   infraestructuraService,
   type InfraestructuraResponse,
@@ -68,10 +69,13 @@ export function MedidorFormDialog({
   isSubmitting,
   submitError,
 }: MedidorFormDialogProps) {
+  const { tenantId } = useAuth()
   const [empresas,         setEmpresas]         = useState<Empresa[]>([])
   const [nodos,            setNodos]            = useState<InfraestructuraResponse[]>([])
   const [loadingEmpresas,  setLoadingEmpresas]  = useState(false)
   const [loadingNodos,     setLoadingNodos]     = useState(false)
+  const [empresaSearch,    setEmpresaSearch]    = useState('')
+  const [nodoSearch,       setNodoSearch]       = useState('')
 
   const {
     register,
@@ -108,12 +112,18 @@ export function MedidorFormDialog({
     if (!open) return
     reset()
     setNodos([])
+    setEmpresaSearch('')
+    setNodoSearch('')
+  }, [open, reset])
+
+  useEffect(() => {
+    if (!open) return
     setLoadingEmpresas(true)
-    empresaService.getAll(0, 1000)
+    empresaService.search(empresaSearch, 0, 20)
       .then(response => setEmpresas(response.content))
       .catch(() => toast.error('No se pudieron cargar las empresas.'))
       .finally(() => setLoadingEmpresas(false))
-  }, [open, reset])
+  }, [open, empresaSearch])
 
   // ── Cargar nodos al cambiar empresa (selector en cascada) ──────────────────
   useEffect(() => {
@@ -121,8 +131,8 @@ export function MedidorFormDialog({
     if (!selectedEmpresaRuc) { setNodos([]); return }
 
     setLoadingNodos(true)
-    infraestructuraService.getByEmpresa(selectedEmpresaRuc)
-      .then(setNodos)
+    infraestructuraService.search(selectedEmpresaRuc, nodoSearch, 0, 20)
+      .then(response => setNodos(response.content))
       .catch((err) => {
         if (!isAxiosError(err) || err.response?.status !== 404) {
           toast.error('Error al cargar la infraestructura de la empresa.')
@@ -130,7 +140,7 @@ export function MedidorFormDialog({
         setNodos([])
       })
       .finally(() => setLoadingNodos(false))
-  }, [selectedEmpresaRuc, setValue])
+  }, [selectedEmpresaRuc, nodoSearch, setValue])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -212,6 +222,14 @@ export function MedidorFormDialog({
                     } />
                   </SelectTrigger>
                   <SelectContent>
+                    <div className="p-2">
+                      <Input
+                        value={empresaSearch}
+                        onChange={e => setEmpresaSearch(e.target.value)}
+                        placeholder="Buscar empresa o RUC..."
+                        className="h-8"
+                      />
+                    </div>
                     {empresas.map(e => (
                       <SelectItem key={e.ruc} value={e.ruc}>
                         <span className="font-medium">{e.razonSocial}</span>
@@ -252,6 +270,14 @@ export function MedidorFormDialog({
                     } />
                   </SelectTrigger>
                   <SelectContent>
+                    <div className="p-2">
+                      <Input
+                        value={nodoSearch}
+                        onChange={e => setNodoSearch(e.target.value)}
+                        placeholder="Buscar punto..."
+                        className="h-8"
+                      />
+                    </div>
                     {nodos.map(n => (
                       <SelectItem key={n.id} value={String(n.id)}>
                         <span className="font-mono text-[10px] font-bold text-primary mr-1.5">
@@ -305,6 +331,7 @@ export function MedidorFormDialog({
                 <PhotoDropzone
                   value={field.value ?? null}
                   onChange={field.onChange}
+                  tenantId={tenantId}
                   disabled={isSubmitting}
                 />
               )}

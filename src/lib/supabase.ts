@@ -67,7 +67,10 @@ export interface UploadResult {
  *   3. Upload al bucket bajo carpeta /registros/
  *   4. Retorna path relativo + URL pública directa
  */
-export async function uploadMedidorFoto(file: File): Promise<UploadResult> {
+export async function uploadMedidorFoto(file: File, tenantId: string): Promise<UploadResult> {
+  if (!tenantId || !tenantId.trim()) {
+    throw new Error('Tenant no disponible para subir la foto.')
+  }
   // Validaciones previas a la compresión
   if (!file.type.startsWith('image/')) {
     throw new Error('Solo se permiten archivos de imagen.')
@@ -78,7 +81,8 @@ export async function uploadMedidorFoto(file: File): Promise<UploadResult> {
 
   const compressed = await compressImage(file)
   const filename   = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}.jpg`
-  const path       = `registros/${filename}`
+  const safeTenant = tenantId.replace(/[^a-zA-Z0-9_-]/g, '_')
+  const path       = `${safeTenant}/registros/${filename}`
 
   const { error } = await supabase.storage
     .from(BUCKET)

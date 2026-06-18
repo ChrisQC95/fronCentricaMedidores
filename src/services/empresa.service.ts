@@ -38,6 +38,9 @@ export const empresaService = {
   getAll: (page = 0, size = 10): Promise<PageableResponse<Empresa>> =>
     api.get<PageableResponse<Empresa>>('/api/empresas', { params: { page, size } }).then(r => r.data),
 
+  search: (q = '', page = 0, size = 20): Promise<PageableResponse<Empresa>> =>
+    api.get<PageableResponse<Empresa>>('/api/empresas/search', { params: { q, page, size } }).then(r => r.data),
+
   /** GET /api/empresas/{ruc} */
   getById: (ruc: string): Promise<Empresa> =>
     api.get<Empresa>(`/api/empresas/${ruc}`).then(r => r.data),

@@ -66,6 +66,8 @@ export function InfraestructuraDialog({
   const [nodosPadre, setNodosPadre] = useState<InfraestructuraResponse[]>([])
   const [loadingEmpresas, setLoadingEmpresas] = useState(false)
   const [loadingNodos, setLoadingNodos] = useState(false)
+  const [empresaSearch, setEmpresaSearch] = useState('')
+  const [nodoSearch, setNodoSearch] = useState('')
 
   const {
     register,
@@ -96,11 +98,11 @@ export function InfraestructuraDialog({
   useEffect(() => {
     if (!open) return
     setLoadingEmpresas(true)
-    empresaService.getAll(0, 1000)
+    empresaService.search(empresaSearch, 0, 20)
       .then(response => setEmpresas(response.content))
       .catch(() => toast.error('No se pudieron cargar las empresas.'))
       .finally(() => setLoadingEmpresas(false))
-  }, [open])
+  }, [open, empresaSearch])
 
   // ── Cargar nodos padre cuando cambia la empresa seleccionada ───────────────
   useEffect(() => {
@@ -109,8 +111,9 @@ export function InfraestructuraDialog({
       return
     }
     setLoadingNodos(true)
-    infraestructuraService.getByEmpresa(selectedEmpresaRuc)
-      .then(nodos => {
+    infraestructuraService.search(selectedEmpresaRuc, nodoSearch, 0, 20)
+      .then(response => {
+        const nodos = response.content
         // En modo edición excluir el nodo actual para evitar auto-referencias directas
         const filtrados = isEdit ? nodos.filter(n => n.id !== item?.id) : nodos
         setNodosPadre(filtrados)
@@ -122,7 +125,7 @@ export function InfraestructuraDialog({
         setNodosPadre([])
       })
       .finally(() => setLoadingNodos(false))
-  }, [selectedEmpresaRuc, isEdit, item?.id])
+  }, [selectedEmpresaRuc, nodoSearch, isEdit, item?.id])
 
   // ── Inicializar formulario cuando cambia el item o se abre ─────────────────
   useEffect(() => {
@@ -189,6 +192,14 @@ export function InfraestructuraDialog({
                     } />
                   </SelectTrigger>
                   <SelectContent>
+                    <div className="p-2">
+                      <Input
+                        value={empresaSearch}
+                        onChange={e => setEmpresaSearch(e.target.value)}
+                        placeholder="Buscar empresa o RUC..."
+                        className="h-8"
+                      />
+                    </div>
                     {empresas.map(e => (
                       <SelectItem key={e.ruc} value={e.ruc}>
                         <span className="font-medium">{e.razonSocial}</span>
@@ -318,6 +329,14 @@ export function InfraestructuraDialog({
                     <SelectItem value="none">
                       <span className="text-muted-foreground italic">— Sin padre (nodo raíz)</span>
                     </SelectItem>
+                    <div className="p-2">
+                      <Input
+                        value={nodoSearch}
+                        onChange={e => setNodoSearch(e.target.value)}
+                        placeholder="Buscar nodo..."
+                        className="h-8"
+                      />
+                    </div>
                     {nodosPadre.map(n => (
                       <SelectItem key={n.id} value={String(n.id)}>
                         <span className="font-medium">{n.nombre}</span>

@@ -1,94 +1,94 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
-import { loginRequest } from '@/lib/authService'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { csrfRequest, loginRequest, logoutRequest, meRequest } from '@/lib/authService'
 import { TOKEN_KEY, USERNAME_KEY } from '@/lib/api'
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
 interface AuthContextType {
-  /** true si hay un token JWT válido almacenado */
   isAuthenticated: boolean
-  /** Token JWT en crudo (Bearer) */
   token: string | null
-  /** Username del usuario autenticado */
   username: string | null
-  /** Rol del usuario extraído del token JWT (ej. ADMIN, USUARIO) */
   userRole: string | null
-  /**
-   * Llama al backend y, si es exitoso, persiste el token y actualiza el estado.
-   * Lanza un error (AxiosError) si las credenciales son incorrectas.
-   */
+  tenantId: string | null
   login: (username: string, password: string) => Promise<void>
-  /** Limpia el token del estado y del localStorage */
   logout: () => void
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+const ROLE_KEY = 'user_role'
+const TENANT_KEY = 'tenant_id'
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Inicializar desde localStorage para persistir sesión entre recargas
-  const [token, setToken] = useState<string | null>(
-    () => localStorage.getItem(TOKEN_KEY)
-  )
-  const [username, setUsername] = useState<string | null>(
-    () => localStorage.getItem(USERNAME_KEY)
-  )
-  const [userRole, setUserRole] = useState<string | null>(
-    () => localStorage.getItem('user_role')
-  )
+  localStorage.removeItem(TOKEN_KEY)
 
-  /** Derivado: hay sesión activa si el token no es null */
-  const isAuthenticated = token !== null
+  const [token, setToken] = useState<string | null>(null)
+  const [username, setUsername] = useState<string | null>(() => localStorage.getItem(USERNAME_KEY))
+  const [userRole, setUserRole] = useState<string | null>(() => localStorage.getItem(ROLE_KEY))
+  const [tenantId, setTenantId] = useState<string | null>(() => localStorage.getItem(TENANT_KEY))
 
-  /**
-   * login() llama a POST /api/auth/login en el backend.
-   * En caso de error (401, red caída, etc.) propaga el error
-   * para que el componente que llama pueda manejarlo con try/catch.
-   */
+  const isAuthenticated = username !== null
+
+  useEffect(() => {
+    if (!username) return
+    csrfRequest().catch(() => undefined)
+    meRequest()
+      .then(me => {
+        localStorage.setItem(USERNAME_KEY, me.username)
+        localStorage.setItem(ROLE_KEY, me.role)
+        if (me.tenantId) localStorage.setItem(TENANT_KEY, me.tenantId)
+        else localStorage.removeItem(TENANT_KEY)
+        setUsername(me.username)
+        setUserRole(me.role)
+        setTenantId(me.tenantId || null)
+      })
+      .catch(() => {
+        localStorage.removeItem(USERNAME_KEY)
+        localStorage.removeItem(ROLE_KEY)
+        localStorage.removeItem(TENANT_KEY)
+        setUsername(null)
+        setUserRole(null)
+        setTenantId(null)
+      })
+  }, [username])
+
   const login = async (user: string, password: string): Promise<void> => {
     const result = await loginRequest({ username: user, password })
-    
-    // Decodificar JWT payload (header.payload.signature)
-    let role = 'USUARIO'
-    try {
-      const payloadBase64 = result.token.split('.')[1]
-      const payloadDecoded = JSON.parse(atob(payloadBase64))
-      role = payloadDecoded.rol || 'USUARIO'
-    } catch (e) {
-      console.error('Error decodificando token', e)
-    }
+    await csrfRequest().catch(() => undefined)
+    const me = await meRequest().catch(() => ({
+      username: result.username,
+      role: result.role || 'USUARIO',
+      tenantId: '',
+    }))
 
-    // Persistir en localStorage
-    localStorage.setItem(TOKEN_KEY, result.token)
-    localStorage.setItem(USERNAME_KEY, result.username)
-    localStorage.setItem('user_role', role)
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.setItem(USERNAME_KEY, me.username)
+    localStorage.setItem(ROLE_KEY, me.role)
+    if (me.tenantId) localStorage.setItem(TENANT_KEY, me.tenantId)
+    else localStorage.removeItem(TENANT_KEY)
 
-    // Actualizar estado React
-    setToken(result.token)
-    setUsername(result.username)
-    setUserRole(role)
+    setToken(null)
+    setUsername(me.username)
+    setUserRole(me.role)
+    setTenantId(me.tenantId || null)
   }
 
   const logout = () => {
+    logoutRequest().catch(() => undefined)
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USERNAME_KEY)
-    localStorage.removeItem('user_role')
+    localStorage.removeItem(ROLE_KEY)
+    localStorage.removeItem(TENANT_KEY)
     setToken(null)
     setUsername(null)
     setUserRole(null)
+    setTenantId(null)
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, token, username, userRole, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, token, username, userRole, tenantId, login, logout }}>
       {children}
     </AuthContext.Provider>
   )
 }
-
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useAuth() {
   const ctx = useContext(AuthContext)
